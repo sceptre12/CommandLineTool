@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"commandLineTool/utils"
 	"fmt"
+	"strings"
 )
 
 const WorkSpaceName = "LearningWorkSpace"
@@ -56,6 +57,33 @@ func LaunchProject(projectName, langType string ) bool{
 
 	activateProject(langType,projectDir)
 	return true
+}
+
+func ListAllProjects(){
+	navigateThroughDir(filepath.Join(getUserHome(),WorkSpaceName), nil, nil,nil,nil,2)
+}
+
+func SearchForProject(projectName, language string){
+	isCorrectFolder := func (folderName string) bool{
+		return folderName == projectName
+	}
+
+	isCorrectLanguageFolder := func (path string) bool{
+		return strings.Contains(filepath.ToSlash(path),"/" + language)
+	}
+
+	cbFunc := func (_, dirName string){
+		fmt.Println("Project Found: " + dirName)
+	}
+
+	if projectName != "" && language != "" {
+		navigateThroughDir(filepath.Join(getUserHome(),WorkSpaceName), cbFunc,isCorrectLanguageFolder,isCorrectFolder, nil,2)
+	}else if projectName != "" && language == "" {
+		navigateThroughDir(filepath.Join(getUserHome(),WorkSpaceName), cbFunc,nil,isCorrectFolder, nil,2)
+	}else if projectName == "" && language !="" {
+		navigateThroughDir(filepath.Join(getUserHome(),WorkSpaceName), nil,isCorrectLanguageFolder, nil, nil,2)
+	}
+
 }
 
 // HELPER FUNCTIONS
@@ -120,72 +148,87 @@ func removeDir(dir string){
 	}
 }
 
-func listDirFiles(dir string) {
+
+func navigateThroughDir(dir string, cbFunc func(fileName, dirName string),isCorrectLanguageFolder, isCorrectFolder, isCorrectFile func(string)bool, maxLevel int) (bool,error) {
 	if !doesDirExist(dir){
-		panic("Dir does not exist" + dir)
+		panic("Dir does not exist: " + dir)
 	}
-	err := filepath.Walk(dir,func(path string, info os.FileInfo, err error) error{
+
+	basePathLength := len(strings.Split(filepath.ToSlash(dir),"/"))
+
+	// The walk function literally walks through all files and dir starting from and including the root path
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error{
 		if err != nil{
 			fmt.Println("Error Occurred: " + err.Error())
 			return err
 		}
-		if info.IsDir(){
-			fmt.Println("Dir: ", info.Name())
-		}else {
-			fmt.Println("File: ", info.Name())
+
+		_, endOfPath := filepath.Split(dir)
+		if endOfPath == info.Name() {
+			return nil
 		}
 
-		return err
+		// Don't dig pass the max folder level
+		if len(strings.Split(filepath.ToSlash(path),"/")) - basePathLength > maxLevel{
+			return filepath.SkipDir
+		}
+
+
+		if info.IsDir() {
+			// Ensures the search only occurs in the language dir
+			if isCorrectLanguageFolder != nil && !isCorrectLanguageFolder(path){
+				return filepath.SkipDir
+			}
+
+			if isCorrectFolder != nil && isCorrectFolder(info.Name()){
+				cbFunc("",path)
+				return filepath.SkipDir
+			}
+
+			// Prints out the dir info if the conditions hold true
+			if isCorrectLanguageFolder != nil && isCorrectFolder == nil || isCorrectLanguageFolder == nil && isCorrectFolder == nil{
+
+				isProjectName := checkAndPrintProjName(info.Name())
+
+				if !isProjectName {
+					fmt.Println(" - " + info.Name())
+				}
+			}
+		}else{
+			if isCorrectFolder != nil && isCorrectFile(info.Name()){
+				cbFunc(info.Name(),"")
+				return filepath.SkipDir
+			}else{
+				fmt.Println(" -- " + info.Name())
+			}
+		}
+
+		return nil
 	})
 
 	if err != nil {
-		panic("Error occurred: " + err.Error())
+		return false, err
 	}
 
+	return true, nil
 }
 
-// TODO finish the below
-func findDir(name,dir string, level int)bool{
-	hasFound := false
-	currentDirLevel := level -1
-
-
-	err := filepath.Walk(dir,func(path string, info os.FileInfo, err error) error{
-		if err != nil{
-			fmt.Println("Error Occurred: " + err.Error())
-			return err
-		}
-		if info.IsDir() && !hasFound{
-			hasFound = findDir(name,filepath.Join(dir,info.Name()), level -1)
-		}
-
-		return err
-	})
-
-	if currentDirLevel == 0 {
-		return false
+func checkAndPrintProjName(folder string) bool{
+	isFolderAProjectFolder := false
+	switch folder{
+	case utils.Js:
+		fmt.Println("\nJs Projects")
+		isFolderAProjectFolder = true
+	case utils.Java:
+		fmt.Println("\nJava Projects")
+		isFolderAProjectFolder = true
+	case utils.Go:
+		fmt.Println("\nGo Projects")
+		isFolderAProjectFolder = true
+	case utils.Python:
+		fmt.Println("\nPython Projects")
+		isFolderAProjectFolder = true
 	}
 
-	if err != nil {
-		panic("Error occurred: " + err.Error())
-	}
-
-	return hasFound
-}
-
-func digIntoDir(name string,dir string, level int) bool{
-	currentLevel := level -1
-	if FileInfo, err := os.Stat(dir); err != nil {
-		if err != nil{
-			panic("Error with file " + err.Error())
-		}
-		if FileInfo.Name() == name  {
-			return false
-		}else if currentLevel == 0 {
-			return true
-		} else if FileInfo.IsDir(){
-			return digIntoDir(name,dir,currentLevel)
-		}
-	}
-	return false
+	return isFolderAProjectFolder
 }

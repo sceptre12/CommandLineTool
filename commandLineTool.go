@@ -21,7 +21,7 @@ func setupUserInputs() {
 	createProject := flag.NewFlagSet(utils.CreateProject, flag.ContinueOnError)
 	launchProject := flag.NewFlagSet(utils.LaunchProject, flag.ContinueOnError)
 	deleteProject := flag.NewFlagSet(utils.DeleteProject, flag.ContinueOnError)
-	searchForProject := flag.NewFlagSet(utils.SearchForProject, flag.ContinueOnError)
+	searchForProjects := flag.NewFlagSet(utils.SearchForProject, flag.ContinueOnError)
 
 	// Create Project subCommands
 	projectName := createProject.String("name", "", "Project Name (Required)")
@@ -38,8 +38,9 @@ func setupUserInputs() {
 	projectLanguage := deleteProject.String("language", "", "Projects main programming Language Ex input: (js|go|python|ruby)")
 
 	// Search for project
-	//projectToBeSearched := searchForProject.String("name", "", "Project to be Searched ")
-	//projectSearchArea := searchForProject.String("language", "", "Projects main programming Language Ex input: (js|go|python|ruby)")
+	projectToBeSearched := searchForProjects.String("name", "", "Project to be Searched ")
+	projectSearchArea := searchForProjects.String("language", "", "Projects main programming Language Ex input: (js|go|python|ruby)")
+
 
 	// Verify that a subcommand has been provided
 	// os.Arg[0] is the main command
@@ -63,11 +64,11 @@ func setupUserInputs() {
 	case utils.DeleteProject:
 		deleteProject.Parse(os.Args[2:])
 	case utils.SearchForProject:
-		searchForProject.Parse(os.Args[2:])
+		searchForProjects.Parse(os.Args[2:])
 	case "help", "--help", "-help":
-		printDefaultVals(createProject,launchProject,deleteProject,searchForProject)
+		printDefaultVals(createProject,launchProject,deleteProject,searchForProjects)
 	default:
-		printDefaultVals(createProject,launchProject,deleteProject,searchForProject)
+		printDefaultVals(createProject,launchProject,deleteProject,searchForProjects)
 		panic("Wrong arg passed: " +  os.Args[1],)
 	}
 
@@ -77,9 +78,9 @@ func setupUserInputs() {
 	}else if deleteProject.Parsed(){
 		handleRemoveProject(deleteProject, *projectToBeDeleted, *projectLanguage)
 	}else if launchProject.Parsed(){
-		handleLaunchProject(createProject,*openProject,*searchArea)
-	}else if searchForProject.Parsed(){
-		fmt.Println("Searching for project not handled")
+		handleLaunchProject(launchProject,*openProject,*searchArea)
+	}else if searchForProjects.Parsed(){
+		handleSearchForProject(*projectToBeSearched,*projectSearchArea)
 	}
 
 }
@@ -95,8 +96,12 @@ func printDefaultVals(createProject *flag.FlagSet,launchProject *flag.FlagSet,de
 	searchForProject.PrintDefaults()
 }
 
+func isAppropriateLang (langType string) bool{
+	return langType != utils.Js || langType != utils.Go || langType != utils.Java || langType != utils.Python
+}
+
 func isNotValidArgs( name string, langType string) bool{
-	return  ( name == "" || langType == "" )  || (langType != utils.Js && langType != utils.Go && langType != utils.Java && langType != utils.Python)
+	return  ( name == "" || langType == "" )  || isAppropriateLang(langType)
 }
 
 func errorCheck(params *flag.FlagSet,name,langType string){
@@ -130,5 +135,15 @@ func handleLaunchProject(params *flag.FlagSet, projectName string, langType stri
 
 	if directoryManager.LaunchProject(projectName,langType){
 		fmt.Println("Success...")
+	}
+}
+
+func handleSearchForProject( name, language string){
+	if name == "" && language == ""{
+		// Get all projects
+		directoryManager.ListAllProjects()
+	}else if language == "" || (language != "" && isAppropriateLang(language)) {
+		// Get projects associated
+		directoryManager.SearchForProject(name,language)
 	}
 }
