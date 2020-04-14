@@ -97,11 +97,11 @@ func printDefaultVals(createProject *flag.FlagSet,launchProject *flag.FlagSet,de
 }
 
 func isAppropriateLang (langType string) bool{
-	return langType != utils.Js || langType != utils.Go || langType != utils.Java || langType != utils.Python
+	return langType == utils.Js || langType == utils.Go || langType == utils.Java || langType == utils.Python
 }
 
 func isNotValidArgs( name string, langType string) bool{
-	return  ( name == "" || langType == "" )  || isAppropriateLang(langType)
+	return  ( name == "" || langType == "" )  || !isAppropriateLang(langType)
 }
 
 func errorCheck(params *flag.FlagSet,name,langType string){
